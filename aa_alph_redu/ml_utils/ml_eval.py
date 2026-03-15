@@ -1,14 +1,21 @@
+import time
+
 import numpy as np
 import sklearn.metrics
 import copy
 
 class MLClasEval:
-    def __init__(self, clas_type="binary", usr_perf_func=None, usr_perf_kwargs=None, usr_model_func=None, usr_model_kwargs=None):
+    def __init__(self, clas_type="binary", usr_perf_func=None, usr_perf_kwargs=None, usr_model_func=None, usr_model_kwargs=None, timing=False):
         self.eval_type = None
         self.clas_type = clas_type
         self.usr_perf_flag, self.usr_perf_func, self.usr_perf_kwargs = self._usr_func_setup(usr_perf_func, usr_perf_kwargs)
         self.usr_model_flag, self.usr_model_func, self.usr_model_kwargs = self._usr_func_setup(usr_model_func,
                                                                                             usr_model_kwargs)
+        self.timing = timing
+        if self.timing:
+            self.time_store = {}
+        else:
+            self.time_store = None
 
     def _usr_func_setup(self, usr_func, usr_kwargs):
         if usr_func is None:
@@ -71,28 +78,39 @@ class MLClasEval:
         return perf
 
     def _train_test(self, model, trn_data, trn_labs, tst_data):
+        if self.timing:
+            start = time.perf_counter()
         model.train(trn_data, trn_labs)
+        if self.timing:
+            end = time.perf_counter()
+            t_train = end - start
+        else:
+            t_train = None
         # if model func, evaluate it
         if self.usr_model_flag:
             usr_func_eval = self.usr_model_func(model, **self.usr_model_kwargs)
         else:
             usr_func_eval = None
         res, probs = model.test(tst_data)
-        return res, probs, usr_func_eval
+        return res, probs, usr_func_eval, t_train
 
     def train(self, model, trn_data, trn_labs):
         # does this need to use train_test before we can integrate meta func with it?
         self.eval_type = "train"
-        res, probs, umf = self._train_test(model, trn_data, trn_labs, trn_data)
+        res, probs, umf, t = self._train_test(model, trn_data, trn_labs, trn_data)
         # get performance
         trn_perf = self.get_perf(res, probs, trn_labs, trn_data.index)
+        if self.timing:
+            self.time_store["train"] = t
         return trn_perf, umf
 
     def train_test(self, model, trn_data, trn_labs, tst_data, tst_labs):
         self.eval_type = "traintest"
-        res, probs, umf = self._train_test(model, trn_data, trn_labs, tst_data)
+        res, probs, umf, t = self._train_test(model, trn_data, trn_labs, tst_data)
         # get performance
         tst_perf = self.get_perf(res, probs, tst_labs, tst_data.index)
+        if self.timing:
+            self.time_store["train"] = t
         return tst_perf, umf
 
     def cross_validation(self, orig_model, data, labs, cv_obj):
@@ -116,7 +134,9 @@ class MLClasEval:
             tst_data = data.iloc[tst_i]
             tst_labs = labs[tst_i]
             # each iteration we get result and probabilities
-            res, probs, umf = self._train_test(model, trn_data, trn_labs, tst_data)
+            res, probs, umf, t = self._train_test(model, trn_data, trn_labs, tst_data)
+            if self.timing:
+                self.time_store[i] = t
             it_res[i] = res
             it_probs[i] = probs
             it_labs[i] = tst_labs

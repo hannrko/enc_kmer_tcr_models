@@ -7,14 +7,14 @@ from sklearn.model_selection import StratifiedKFold
 
 
 class KmerTCRrepClassification:
-    def __init__(self, model, model_kwargs, tf_steps, tf_kwargs, k, explain):
+    def __init__(self, model, model_kwargs, tf_steps, tf_kwargs, k, explain, ra_usr_model_func=None, ra_usr_model_kwargs=None):
         self.k = k
         self.model = model(**model_kwargs)
         self.explain = explain
-        self.tf_op = AAKmerFeatures(tf_steps, tf_kwargs, self.model, self.k, self.explain)
+        self.tf_op = AAKmerFeatures(tf_steps, tf_kwargs, self.model, self.k, self.explain, ra_usr_model_func=ra_usr_model_func, ra_usr_model_kwargs=ra_usr_model_kwargs)
 
     def train(self, trn_data, trn_labels):
-        tf_trn_data, tf_trn_expl = self.tf_op.fit_transform(trn_data, trn_labels)
+        tf_trn_data, tf_trn_expl= self.tf_op.fit_transform(trn_data, trn_labels)
         print(tf_trn_data, tf_trn_data.min().min(), tf_trn_data.max().max())
         self.model.train(tf_trn_data, trn_labels)
 
@@ -27,7 +27,7 @@ class KmerTCRrepClassification:
 
 
 class AAKmerFeatures:
-    def __init__(self, steps, kwargs, model, k, explain):
+    def __init__(self, steps, kwargs, model, k, explain, ra_usr_model_func=None, ra_usr_model_kwargs=None):
         self.tf_dict = {"ra": self.ra, "cf": self.cf, "filt": self.filt, "pgen": self.pgen_norm,
                         "stnd": self.stnd, "stnd_f": self.flt_stnd, "repair": self.repair}
         self.steps = steps
@@ -42,6 +42,8 @@ class AAKmerFeatures:
         else:
             self.explain = dict(zip(self.tf_dict.keys(), [False]*len(self.tf_dict)))
         self.expl_dict = {}
+        self.ra_usr_model_func = ra_usr_model_func
+        self.ra_usr_model_kwargs = ra_usr_model_kwargs
 
     def tf_step(self, stp, kwargs, data, labels):
         stp_obj, tf_data, tf_expl = self.tf_dict[stp](data, labels, **kwargs)
@@ -65,17 +67,18 @@ class AAKmerFeatures:
             data = self.step_objs[stp].apply(data)
         return data
 
-    def ra(self, data, labels, n_alph, aa_enc, min_ra_size, n_solns, clus_mode):
-        skf = StratifiedKFold(n_splits=5, shuffle=True)
+    def ra(self, data, labels, n_alph, aa_enc, min_ra_size, n_solns, clus_mode, time_opt=False):
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
         ra_kwargs = {"aa_enc": aa_enc, "cmetric": "euclidean", "cmethod": "average"}
         ra = aaar.ReducedAAAlphabet(ra_kwargs, n_alph, self.k, model=self.model, d=data, l=labels, val_obj=skf,
-                               min_opt_size=min_ra_size, n_solns=n_solns, clus_mode=clus_mode)
+                               min_opt_size=min_ra_size, n_solns=n_solns, clus_mode=clus_mode, time_opt=time_opt,
+                                    usr_model_func=self.ra_usr_model_func, usr_model_kwargs=self.ra_usr_model_kwargs)
         ra_expl = dict(zip(data.columns, ra.converts(data.columns)))
         return ra, ra.apply(data), ra_expl
 
-    def cf(self, data, labels, aa_enc, n_clus, clus_mthd):
-        skf = StratifiedKFold(n_splits=5, shuffle=True)
-        km_clus = ckf.KmerCluster(data, aa_enc, n_clus, clus_mthd, self.k, self.model, labels, val_obj=skf)
+    def cf(self, data, labels, aa_enc, n_clus, clus_mthd, time_opt=False):
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+        km_clus = ckf.KmerCluster(data, aa_enc, n_clus, clus_mthd, self.k, self.model, labels, val_obj=skf, time_opt=time_opt)
         km_clus_expl = dict(zip(data.columns, km_clus.converts(data.columns)))
         return km_clus, km_clus.apply(data), km_clus_expl
 

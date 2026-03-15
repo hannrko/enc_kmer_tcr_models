@@ -80,7 +80,6 @@ class AAAlphKmer:
     def convert_df(self, seq_df):
         # df transposed to have sequences on index
         seq_dft = seq_df.T
-        #redu = list(map(self.convert, seq_dft.index))
         redu = self.converts(seq_dft.index)
         seq_dft.index = redu
         redu_df = seq_dft.groupby(seq_dft.index).agg("sum")
@@ -88,13 +87,17 @@ class AAAlphKmer:
 
 class ReducedAAAlphabet:
     def __init__(self, aaclus_kwargs, n_alph, k=3, max_opt_size=20, min_opt_size=1, model=None, d=None, l=None,
-                 val_obj=None, n_solns=None, clus_mode="all"):
+                 val_obj=None, n_solns=None, clus_mode="all", time_opt=False, usr_model_func=None, usr_model_kwargs=None):
         self.k = k
         # do clustering
         self.aa_clus = aac.AAClustering(**aaclus_kwargs)
         self.solns, self.nc_solns = self.aa_clus.get_solns(mode=clus_mode, n_solns=n_solns)
         # only save alphabet performance if we optimise
         self.alph_perf = []
+        self.time_opt = time_opt
+        self.time_res = {}
+        self.usr_model_func = usr_model_func
+        self.usr_model_kwargs = usr_model_kwargs
         # this is where we can optimise
         zero_n_alph = np.atleast_1d(n_alph) == 0
         if not np.any(zero_n_alph):
@@ -131,7 +134,14 @@ class ReducedAAAlphabet:
 
     def _optimise_alph(self, model, d, l, val_obj, perf_name="AUC"):
         # given set of alphabet options, calc performance and
-        self.alph_perf = [self._calc_alph_perf(n_alph, model, d, l, val_obj)[perf_name] for n_alph in self.expand_n_alph]
+        all_ap = []
+        all_airf = []
+        for n_alph in self.expand_n_alph:
+            ap, airf = self._calc_alph_perf(n_alph, model, d, l, val_obj)
+            all_ap.append(ap[perf_name])
+            all_airf.append(airf)
+        self.alph_perf = all_ap
+        self.alph_itfuncres = all_airf
         # we might want to save this as table
         # how to handle which performance metric?
         # takes first maximum which is larger alphabet currently...
@@ -143,7 +153,10 @@ class ReducedAAAlphabet:
         aa_data = aaa.convert_df(d)
         # do cross-validation
         # get performance
-        ra_eval = mlev.MLClasEval()
+        ra_eval = mlev.MLClasEval(timing=self.time_opt, usr_model_func=self.usr_model_func, usr_model_kwargs=self.usr_model_kwargs)
         cv_res = ra_eval.cross_validation(model, aa_data, l, val_obj)
         a_perf = cv_res[0]
-        return a_perf
+        a_itfuncres = cv_res[2]
+        str_n_alph = str(n_alph)
+        self.time_res[str_n_alph] = ra_eval.time_store
+        return a_perf, a_itfuncres

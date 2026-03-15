@@ -1,9 +1,6 @@
-import ast
-import itertools
 import os
 import pandas as pd
 import numpy as np
-import aa_alph_redu.aa_cluster as aac
 import scipy as sp
 from sklearn.manifold import MDS
 from aa_alph_redu.ml_utils import ml_eval as mlev
@@ -72,22 +69,22 @@ class KmerClusterSingle:
     def apply(self, kmer_df):
         # kmer_df should have columns as kmers
         kmer_dft = kmer_df.T
-        #kmer_clus = list(map(self.convert, kmer_dft.index))
         kmer_dft.index = self.converts(kmer_dft.index)#kmer_clus
         clus_df = kmer_dft.groupby(kmer_dft.index).agg("sum")
         return clus_df.T
 
 
 class KmerCluster:
-    def __init__(self, kmer_df, aa_enc, n_clus, clus_mthd, k, model=None, l=None, val_obj=None):
+    def __init__(self, kmer_df, aa_enc, n_clus, clus_mthd, k, model=None, l=None, val_obj=None, time_opt=False):
         self.nclus_perf = None
-        #self.kmers = kmers
         self.aa_enc = aa_enc
         self.clus_mthd = clus_mthd
         self.k = k
         if isinstance(n_clus,str):
             n_clus = ast.literal_eval(n_clus)
         self.init_n_clus = n_clus
+        self.time_opt = time_opt
+        self.time_res = {}
         if np.array(n_clus).ndim == 0:
             self.km_clus = KmerClusterSingle(kmer_df, aa_enc, n_clus, clus_mthd, k)
         else:
@@ -96,6 +93,7 @@ class KmerCluster:
         self.kmer_clus_converter = self.km_clus.kmer_clus_converter
         self.kmer_clus_explainer = self.km_clus.kmer_clus_explainer
 
+
     def _opt_nclus(self, n_clus, model, d, l, val_obj, perf_name="AUC"):
         self.nclus_perf = [self._calc_nclus_perf(nc, model, d, l, val_obj)[perf_name] for nc in n_clus]
         return n_clus[np.argmax(self.nclus_perf)]
@@ -103,9 +101,10 @@ class KmerCluster:
     def _calc_nclus_perf(self, n_clus, model, d, labs, val_obj):
         # need to do it this way because of leakage
         try_nclus = BasicKmerClusterModel(model, self.aa_enc, n_clus, self.clus_mthd, self.k)
-        nc_eval = mlev.MLClasEval()
+        nc_eval = mlev.MLClasEval(timing=self.time_opt)
         cv_res = nc_eval.cross_validation(try_nclus, d, labs, val_obj)
         a_perf = cv_res[0]
+        self.time_res[str(n_clus)] = nc_eval.time_store
         return a_perf
 
     def convert(self, kmer):
@@ -134,4 +133,4 @@ class BasicKmerClusterModel:
 
     def test(self, data):
         nc_data = self.kmer_clus.apply(data)
-        return self.model.test(nc_data)#, self.model.predict_proba(nc_data)[:, 1]
+        return self.model.test(nc_data)
