@@ -11,7 +11,7 @@ def get_sc_pos(labels):
     return (len(labels) - n_pos) / n_pos
 
 class XGB:
-    def __init__(self, n_estimators, max_depth, learning_rate, reg_lambda, class_weight=None):
+    def __init__(self, n_estimators=100, max_depth=6, learning_rate=0.3, reg_lambda=1, class_weight=None):
         # some free parameters but keep binary logistic for binary classification model
         self.model_kwargs = {"n_estimators": n_estimators, "max_depth": max_depth, "learning_rate": learning_rate,
                              "reg_lambda": reg_lambda, "objective": "binary:logistic"}
@@ -37,7 +37,7 @@ class XGB:
 class XGBBayesOpt:
     # must be run without standard scaling within framework
     # apply it here to avoid leakage from splitting
-    def __init__(self, class_weight, train_val_split_rs=0, n_trials=50, n_estimators=100, test_prop=0.2,
+    def __init__(self, class_weight=None, train_val_split_rs=0, n_trials=50, n_estimators=100, test_prop=0.2,
                  max_depth_min=3, max_depth_max=10, learning_rate_min=0.01, learning_rate_max=1, reg_lambda_min=1,
                  reg_lambda_max=100):
         self.class_weight = class_weight

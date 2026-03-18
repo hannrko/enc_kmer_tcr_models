@@ -15,7 +15,6 @@ class KmerTCRrepClassification:
 
     def train(self, trn_data, trn_labels):
         tf_trn_data, tf_trn_expl= self.tf_op.fit_transform(trn_data, trn_labels)
-        print(tf_trn_data, tf_trn_data.min().min(), tf_trn_data.max().max())
         self.model.train(tf_trn_data, trn_labels)
 
     def test(self, tst_data):
@@ -28,7 +27,7 @@ class KmerTCRrepClassification:
 
 class AAKmerFeatures:
     def __init__(self, steps, kwargs, model, k, explain, ra_usr_model_func=None, ra_usr_model_kwargs=None):
-        self.tf_dict = {"ra": self.ra, "cf": self.cf, "filt": self.filt, "pgen": self.pgen_norm,
+        self.tf_dict = {"ra": self.ra, "cf": self.cf, "filt": self.filt,
                         "stnd": self.stnd, "stnd_f": self.flt_stnd, "repair": self.repair}
         self.steps = steps
         self.kwargs = kwargs
@@ -67,11 +66,11 @@ class AAKmerFeatures:
             data = self.step_objs[stp].apply(data)
         return data
 
-    def ra(self, data, labels, n_alph, aa_enc, min_ra_size, n_solns, clus_mode, time_opt=False):
+    def ra(self, data, labels, n_alph, aa_enc, min_ra_size, time_opt=False):
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
         ra_kwargs = {"aa_enc": aa_enc, "cmetric": "euclidean", "cmethod": "average"}
         ra = aaar.ReducedAAAlphabet(ra_kwargs, n_alph, self.k, model=self.model, d=data, l=labels, val_obj=skf,
-                               min_opt_size=min_ra_size, n_solns=n_solns, clus_mode=clus_mode, time_opt=time_opt,
+                               min_opt_size=min_ra_size, time_opt=time_opt,
                                     usr_model_func=self.ra_usr_model_func, usr_model_kwargs=self.ra_usr_model_kwargs)
         ra_expl = dict(zip(data.columns, ra.converts(data.columns)))
         return ra, ra.apply(data), ra_expl

@@ -1,6 +1,4 @@
 import itertools
-import os
-
 import pandas as pd
 import numpy as np
 import aa_alph_redu.aa_cluster as aac

@@ -1,14 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Mar  9 13:20:15 2023
-
-@author: hannrk
-"""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import kneed
 
 class SeqFilter:
     # filter kmers based on some measure derived from their frequency
@@ -161,20 +154,10 @@ class SeqNumFilter:
             self.num_arg = num_arg
             print("num arg not string")
         else:
-            print("Setting filter threshold with elbow")
-            self.num_arg = self._set_elbow()
+            print("Filter threshold not set")
+            self.num_arg = None
         # get sequences to remove
         self.rem_seqs = self.ff_opts[self.ff_key](self.trn_meas, self.num_arg)
-
-    def _set_elbow(self):
-        ord_ind = np.flip(np.argsort(self.trn_meas))
-        meas_ord = self.trn_meas.iloc[ord_ind]
-        x = kneed.KneeLocator(np.arange(len(meas_ord)), meas_ord.values, S=10.0, curve="convex",
-                          direction="decreasing").elbow
-        if x is None:
-            x = len(meas_ord)
-            print("WARNING: filter threshold cannot be set, no filtering applied")
-        return x
 
     def apply(self, new_seqs):
         # find the set of sequences that are in new seqs thta need to be removed
