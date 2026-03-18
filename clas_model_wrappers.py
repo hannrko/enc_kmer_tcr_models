@@ -125,12 +125,15 @@ class L1LR:
         return coef_dict
 
 class L1LRBayesOpt:
-    def __init__(self, max_iter=100, class_weight=None, train_val_split_rs=0, n_trials=50):
+    def __init__(self, C_min=0.01, C_max=1, max_iter=100, class_weight=None, test_prop=0.2, train_val_split_rs=0, n_trials=50):
         self.default_kwargs = {"penalty": "l1",
                                "max_iter": max_iter,
                                "class_weight": class_weight,
                                "solver": "liblinear"}
         self.model = None
+        self.C_min = C_min
+        self.C_max = C_max
+        self.test_prop = test_prop
         self.train_val_split_rs = train_val_split_rs
         self.full_std = None
         self.n_trials = n_trials
@@ -139,7 +142,7 @@ class L1LRBayesOpt:
 
     def _make_objective(self, train_data, train_labels, val_data, val_labels):
         def objective(trial):
-            model_kwargs = {"C": trial.suggest_float("C", 0.01, 1, log=True) }
+            model_kwargs = {"C": trial.suggest_float("C", self.C_min, self.C_max, log=True) }
             model_kwargs.update(self.default_kwargs)
             model = LogisticRegression(**model_kwargs)
             model.fit(train_data, train_labels)
@@ -149,7 +152,7 @@ class L1LRBayesOpt:
 
     def train(self, data, labels):
         # split data
-        train_data, val_data, train_labels, val_labels = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=self.train_val_split_rs)
+        train_data, val_data, train_labels, val_labels = train_test_split(data, labels, test_size=self.test_prop, stratify=labels, random_state=self.train_val_split_rs)
         opt_std = Standardise(train_data)
         train_data_std = opt_std.apply(train_data)
         val_data_std = opt_std.apply(val_data)
