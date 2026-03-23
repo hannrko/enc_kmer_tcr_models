@@ -46,18 +46,29 @@ class KmerMatrixGenerator:
             r = [rs for rs in r if rs in l]
         self.kmer_mat[c].loc[r] = vals
 
-km_train = KmerMatrixGenerator(4, 20, noise=1, rs=0)
+# 4mers
+k = 4
 
-km_test = KmerMatrixGenerator(4, 20, noise=1, sam_initial="ST", rs=1)
+km_train = KmerMatrixGenerator(k, 20, noise=1, rs=0)
+
+km_test = KmerMatrixGenerator(k, 20, noise=1, sam_initial="ST", rs=1)
 
 # model takes kmer matrices with one kmer per row, one sample per column, so transpose
 print(km_train.kmer_mat.T, km_train.labels)
 print(km_test.kmer_mat.T, km_test.labels)
 
+# Model
+m_key = "xgbbo" # choose model XGBoost with Bayesian optimisation (xgbbo), options are "xgb", "xgbbo", "l1lr", "l1lrbo"
 m_kw = {"class_weight": "balanced"}
+
+# Features
+feat = "ra" # reduced alphabet features
+enc = "Atchley" # Atchley factor encoding
+n_alph = 0 # set alphabet size using model performance
+
 res = run_enc_kmer_tcr_model.trntst(km_train.kmer_mat.T, km_train.labels, km_test.kmer_mat.T, km_test.labels,
-                              "xgb", m_kw, "ra",
-                                    {"aa_enc": "Atchley", "n_alph": 0, "min_ra_size": 1},
-                                    k=4,  runtime_exp=False, res_dir=None, sv=False)
+                              m_key, m_kw, feat,
+                                    {"aa_enc": enc, "n_alph": n_alph, "min_ra_size": 1},
+                                    k=k,  runtime_exp=False, res_dir=None, sv=False)
 
 print(res)

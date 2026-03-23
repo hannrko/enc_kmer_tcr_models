@@ -22,7 +22,8 @@ Implements reduced alphabet features based on Atchley factor or BLOSUM62 encodin
 ## Usage
 
 ### Models
-run_enc_kmer_tcr_model.py contains function trntst(). An example of usage is provided in example_enc_kmer_tcr_model.py with randonly-generated kmer matrices.
+run_enc_kmer_tcr_model.py contains function trntst() which given a kmer matrix and corresponding labels each for training and testing, implements a model with optional reduced alphabet features and hyperparameter setting with Bayesian optimisation.
+An example of usage is provided in example_enc_kmer_tcr_model.py with randomly-generated kmer matrices.
 
 run_enc_kmer_tcr_model.trntst() options are:
 - `trn_data`
